@@ -1,0 +1,185 @@
+experiment_name: ConWriter_exp
+random_seed: 42
+
+paths:
+  prompt_parquet_path: ConStory-Bench/data/prompts/prompts.parquet
+  outputs_dir: experiments/outputs
+  logs_dir: experiments/logs
+  records_jsonl: experiments/outputs/ConWriter_records.jsonl
+  judge_ready_parquet: experiments/outputs/ConWriter_judge_ready.parquet
+
+chunk_generation:
+  max_steps: 4
+  model_name: ConWriter
+  temperature: 0.7
+  max_chunk_tokens: 512
+  target_chunk_words: 120
+
+# Single entry for API provider / key / model switching.
+# Any OpenAI-compatible endpoint may be configured through environment variables.
+llm:
+  enabled: false
+  provider: openai_compatible
+  base_url: https://api.openai.com/v1
+  model: openai/gpt-4.1-mini
+  api_key_env: OPENAI_API_KEY
+  api_key: ""
+  timeout_seconds: 60
+  max_retries: 1
+  request_temperature: null
+  request_max_tokens: null
+  request_logprobs: true
+  request_top_logprobs: 5
+  extra_headers: {}
+  system_prompt: "You are ConWriter generation model. Continue the story with coherent, constraint-consistent narrative."
+  fallback_to_stub: true
+
+memory:
+  seed_characters_into_dynamic: true
+  max_history_entries: 200
+  enable_graph_summary: true
+
+pipeline:
+  mode: incremental_v2
+  allow_legacy_fallback: false
+
+planning:
+  auto_adjust_scene_count: true
+  target_story_words: 0
+  min_scene_words: 180
+
+generation_controls:
+  max_scene_regen_rounds: 1
+  max_scene_repair_rounds: 2
+  max_sentence_patch_rounds: 3
+  max_paragraph_patch_rounds: 1
+  max_patch_targets_per_round: 3
+  allow_neighbor_adjustment: true
+  repair_preserve_unchanged: true
+  enable_replan_hook: true
+  local_replan_window_scenes: 2
+  max_local_replans_per_story: 2
+  oscillation_window: 4
+  oscillation_threshold: 2
+  max_patch_rounds_per_scene: 8
+  enable_repair_metrics: true
+  require_textual_event_realization: true
+  patch_lookahead_top_k: 3
+  low_confidence_anchor_threshold: 0.45
+  min_stability_score: 0.55
+  enable_facet_adaptive_repair: true
+  adaptive_replan_error_threshold: 3
+  adaptive_replan_round_threshold: 2
+
+incremental:
+  enabled: true
+  num_chapters: 2
+  scenes_per_chapter: 2
+  scene_target_words: 220
+  max_repair_rounds: 2
+  strict_precheck: true
+  stop_on_failed_scene: true
+
+consistency:
+  neural_checker_enabled: true
+  max_revision_rounds: 2
+  reject_on_violation: true
+  symbolic:
+    enable_temporal_rules: true
+    enable_entity_rules: true
+    enable_causal_rules: true
+
+logging:
+  level: INFO
+  file_name: ConWriter.log
+
+trace:
+  enabled: true
+  output_dir: experiments/outputs/traces
+  export_prompt_text: true
+  export_metrics: true
+
+variant:
+  variant_name: full_default
+  generation_layer: plan_memory_patch
+  repair_granularity: full_patch_pipeline
+  optimization_layer: global_aware_patch_selection
+  constraint_layer: weighted_constraints
+  replan_layer: local_replan_weighted
+  preservation_layer: preservation_check_on
+  grounding_layer: confidence_aware_grounding
+  entropy_layer: entropy_monitor_on
+
+entropy_monitor:
+  enable_entropy_monitor: true
+  entropy_mode: auto
+  entropy_monitor_mode: sentence_block
+  model_token_high_uncertainty_threshold: 1.5
+  sentence_spike_density_threshold: 0.34
+  risk_low_threshold: 0.58
+  risk_high_threshold: 0.92
+  entropy_spike_weight: 0.35
+  entropy_jump_weight: 0.45
+  constraint_sensitivity_weight: 0.65
+  entropy_high_risk_escalate_validation: true
+  entropy_high_risk_escalate_patch_scope: true
+  entropy_high_risk_replan_trigger: true
+  validation_escalation_extra_checks: 1
+  replan_min_patch_rounds: 2
+  delta_uncertainty_uptrend_threshold: 0.08
+  sentence_uncertainty_variance_threshold: 0.05
+  round_uncertainty_trend_threshold: 0.12
+  joint_weight_template: balanced
+  joint_uncertainty_weight: 0.45
+  joint_symbolic_weight: 0.4
+  joint_memory_weight: 0.15
+  joint_validation_threshold: 0.35
+  joint_validation_min_symbolic_pressure: 0.24
+  joint_validation_min_uncertainty_trend: 0.06
+  joint_validation_max_low_violation_guard: 1
+  joint_validation_require_dual_signal: true
+  joint_patch_threshold: 0.52
+  joint_patch_min_symbolic_pressure: 0.32
+  joint_patch_min_local_failure_signal: 0.25
+  joint_patch_escalation_threshold: 0.68
+  joint_replan_threshold: 0.82
+  joint_replan_min_persistent_risk_steps: 2
+  joint_replan_requires_patch_failure: true
+  delayed_gain_min_uncertainty_drop: 0.03
+  delayed_gain_min_joint_risk_drop: 0.04
+
+experience_bank:
+  enabled: true
+  storage_path: experiments/evaluations/experience_bank/model_experience_bank.json
+  max_entries_per_model: 120
+  max_retrieved_scene_items: 3
+  max_retrieved_retry_items: 3
+
+length_control:
+  enabled: true
+  compensation_cap: 1.6
+  default_compensation_factor: 1.2
+  model_compensation_factors:
+    gpt-5: 1.08
+    gemini: 1.16
+    qwen: 1.30
+    deepseek: 1.35
+  progress_warning_ratio: 0.72
+  under_generation_completion_ratio: 0.85
+  max_guidance_lines: 3
+  premature_closure_cues:
+    - in the end
+    - in conclusion
+    - to sum up
+    - finally
+    - 最后
+    - 最终
+    - 总之
+  online_factor_update: true
+  online_factor_update_rate: 0.12
+
+diagnostics:
+  output_dir: experiments/evaluations/diagnostics
+  export_scene_jsonl: true
+  export_story_json: true
+  export_summary_csv: true
